@@ -10,10 +10,10 @@
         bes_credential:
           username: "tf-user"
           password: "tf-user-demo"
-    - name: Check if EDA credential for controller exists
-      ansible.eda.credential_info:
-        name: 'TF Actions EDA Credential'
-      register: eda_credential
+#    - name: Check if EDA credential for controller exists
+#      ansible.eda.credential_info:
+#        name: 'TF Actions EDA Credential'
+#      register: eda_credential
     - block:
       - name: Create API Token so that EDA can call Controller
         ansible.platform.token:
