@@ -1,0 +1,23 @@
+---
+- name: Install and configure Nginx web server
+  hosts: all  # This will be overridden by the AAP inventory
+  become: yes # Use privilege escalation (sudo) to run the tasks
+
+  tasks:
+    - name: Ensure sudo and Python are installed
+      ansible.builtin.raw: sudo apt-get update && sudo apt-get install -y sudo python3
+      args:
+        creates: /usr/bin/python3
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure Nginx is installed
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+        update_cache: yes
+      
+    - name: Ensure Nginx service is running and enabled
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: yes
