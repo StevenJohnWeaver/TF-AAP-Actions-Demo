@@ -7,10 +7,11 @@ provider "aws" {
 # Configure the AAP provider
 # Replace with your AAP instance details
 terraform {
+  required_version = "~> v1.14.0"
   required_providers {
     aap = {
-      source = "ansible/aap"
-      version = "~> 1.3"
+      source = "dleehr/aap"
+      version = "2.0.0-demo1"
     }
   }
 }
