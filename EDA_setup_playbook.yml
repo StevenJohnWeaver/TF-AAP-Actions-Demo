@@ -1,0 +1,80 @@
+---
+- name: Configure AAP for Terraform Actions
+  hosts: localhost
+  vars:
+    credential_names:
+      basic_event_stream: /aap-tf-actions-basic-event-stream
+  tasks:
+    - name: Set static Basic Event Stream credential
+      ansible.builtin.set_fact:
+        bes_credential:
+          username: "tf-user"
+          password: "tf-user-demo"
+    - name: Check if EDA credential for controller exists
+      ansible.eda.credential_info:
+        name: 'TF Actions EDA Credential'
+      register: eda_credential
+    - block:
+      - name: Create API Token so that EDA can call Controller
+        ansible.platform.token:
+          description: 'EDA Token'
+          scope: "write"
+          state: "present"
+        register: aap_token
+      - name: Create EDA credential for controller
+        ansible.eda.credential:
+          name: 'TF Actions EDA Credential'
+          credential_type_name: 'Red Hat Ansible Automation Platform'
+          organization_name: 'Default'
+          inputs:
+            host: 'http://myaap/api/controller'
+            oauth_token: '{{ ansible_facts.aap_token.token }}'
+      when: eda_credential.credentials | length == 0
+    - name: Check if Basic Event Stream Credential exists
+      ansible.eda.credential_info:
+        name: 'TF Actions Basic Event Stream Credential'
+      register: es_credential
+    - name: Create EDA credential for event stream
+      ansible.eda.credential:
+        name: 'TF Actions Basic Event Stream Credential'
+        credential_type_name: 'Basic Event Stream'
+        organization_name: 'Default'
+        inputs:
+          username: "{{ bes_credential.username }}"
+          password: "{{ bes_credential.password }}"
+      when: es_credential.credentials | length == 0
+    - name: Create EDA Project
+      ansible.eda.project:
+        name: 'TF Actions Project'
+        organization_name: 'Default'
+        url: 'https://github.com/dleehr/rulebooks-sandbox.git'
+    - name: Create EDA Event Stream
+      ansible.eda.event_stream:
+        name: 'TF Actions Event Stream'
+        credential_name: 'TF Actions Basic Event Stream Credential'
+        organization_name: 'Default'
+        forward_events: true
+    - name: Create EDA Decision Environment
+      ansible.eda.decision_environment:
+        name: 'TF Actions Decision Environment'
+        image_url: 'quay.io/ansible/ansible-rulebook:latest'
+        organization_name: 'Default'
+    - name: Create EDA Rulebook Activation
+      ansible.eda.rulebook_activation:
+        name: 'TF Actions Rulebook Activation'
+        project_name: 'TF Actions Project'
+        rulebook_name: 'tf-action-rulebook.yml'
+        eda_credentials:
+          - 'TF Actions EDA Credential'
+        event_streams:
+          - event_stream: 'TF Actions Event Stream'
+            source_name: '__SOURCE_1'
+        decision_environment_name: 'TF Actions Decision Environment'
+        organization_name: 'Default'
+    - name: Fetch Event Stream
+      ansible.eda.event_stream_info:
+        name: 'TF Actions Event Stream'
+      register: event_stream
+    - name: Show URL
+      ansible.builtin.debug:
+        msg: 'url {{ event_stream.event_streams[0].url }}'
