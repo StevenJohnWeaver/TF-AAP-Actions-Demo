@@ -106,20 +106,20 @@ resource "aws_security_group" "allow_http_ssh" {
 # 2. Configure AAP resources to run the playbook
 
 # Create a dynamic inventory in AAP
-resource "aap_inventory" "dynamic_inventory" {
-  name        = "Terraform Provisioned Inventory"
-  description = "Inventory for hosts provisioned by Terraform"
-}
+# resource "aap_inventory" "dynamic_inventory" {
+#  name        = "Terraform Provisioned Inventory"
+#  description = "Inventory for hosts provisioned by Terraform"
+# }
 
 # Add the new EC2 instance to the dynamic inventory
-resource "aap_host" "new_host" {
-  inventory_id = aap_inventory.dynamic_inventory.id
-  name         = aws_instance.web_server.public_ip
-  description  = "Host provisioned by Terraform"
-  variables    = jsonencode({
-    ansible_user = "ubuntu"
-  })
-}
+# resource "aap_host" "new_host" {
+#  inventory_id = aap_inventory.dynamic_inventory.id
+#  name         = aws_instance.web_server.public_ip
+#  description  = "Host provisioned by Terraform"
+#  variables    = jsonencode({
+#    ansible_user = "ubuntu"
+#  })
+# }
 
 # Wait for the EC2 instance to be ready before proceeding
 resource "null_resource" "wait_for_instance" {
