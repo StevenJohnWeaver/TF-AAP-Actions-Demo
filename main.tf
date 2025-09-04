@@ -184,6 +184,7 @@ action "aap_eventdispatch" "event" {
     event_stream_config = {
       # url from the new datasource is working
       url = var.aap_eventstream_url
+      insecure_skip_verify = true
       username = var.tf-es-username
       password = var.tf-es-password
     }
