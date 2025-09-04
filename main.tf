@@ -29,6 +29,12 @@ variable "ssh_key_name" {
   type        = string
 }
 
+# Variable to store the URL for the AAP Event Stream
+variable "aap_eventstream_url" {
+  description = "The URL of the AAP Event Stream"
+  type        = string
+}
+
 # Variable to store the AAP details
 variable "aap_host" {
   description = "The URL of the Ansible Automation Platform instance"
@@ -177,7 +183,7 @@ action "aap_eventdispatch" "event" {
 
     event_stream_config = {
       # url from the new datasource is working
-      url = data.aap_eventstream.eventstream.url
+      url = var.aap_eventstream_url
       username = var.tf-es-username
       password = var.tf-es-password
     }
