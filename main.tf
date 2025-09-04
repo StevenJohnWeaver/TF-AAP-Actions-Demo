@@ -18,7 +18,7 @@ terraform {
 
 provider "aap" {
   host     = var.aap_host
-  insecure = true
+  insecure_skip_verify = true
   username = var.aap_username
   password = var.aap_password
 }
