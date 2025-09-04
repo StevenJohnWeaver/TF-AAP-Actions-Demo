@@ -73,7 +73,7 @@ variable "aap_job_template_id" {
 # 1. Provision the AWS EC2 instance
 resource "aws_instance" "web_server" {
   ami           = "ami-0a7d80731ae1b2435" # Ubuntu Server 22.04 LTS (HVM)
-  instance_type = "t2.micro"
+  instance_type = "t2.large"
   key_name      = var.ssh_key_name
   vpc_security_group_ids = [aws_security_group.allow_http_ssh.id]
   tags = {
