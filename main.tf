@@ -146,6 +146,7 @@ resource "null_resource" "emit_event" {
       events  = [after_create]
       actions = [action.aap_eventdispatch.event]
     }
+  }
 }
 
 # This is using a new 'aap_eventstream' data source in the terraform-provider-aap POC
