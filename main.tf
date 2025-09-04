@@ -40,6 +40,18 @@ variable "aap_username" {
   sensitive   = true
 }
 
+variable "tf-es-username" {
+  description = "The username for the AAP instance"
+  type        = string
+  sensitive   = true
+}
+
+variable "tf-es-password" {
+  description = "The username for the AAP instance"
+  type        = string
+  sensitive   = true
+}
+
 variable "aap_password" {
   description = "The password for the AAP instance"
   type        = string
