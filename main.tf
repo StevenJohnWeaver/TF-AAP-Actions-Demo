@@ -109,6 +109,7 @@ resource "aws_security_group" "allow_http_ssh" {
 resource "aap_inventory" "dynamic_inventory" {
   name        = "Terraform Provisioned Inventory"
   description = "Inventory for hosts provisioned by Terraform"
+  organization_id = aap_organization.default.id
 }
 
 # Add the new EC2 instance to the dynamic inventory
