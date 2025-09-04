@@ -11,7 +11,7 @@ terraform {
   required_providers {
     aap = {
       source = "dleehr/aap"
-      version = "2.0.0-demo1"
+      version = "2.0.0-demo2"
     }
   }
 }
