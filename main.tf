@@ -164,8 +164,8 @@ action "aap_eventdispatch" "event" {
     event_stream_config = {
       # url from the new datasource is working
       url = data.aap_eventstream.eventstream.url
-      username = data.vault_kv_secret_v2.aap_event_streams_auth.data.username
-      password = data.vault_kv_secret_v2.aap_event_streams_auth.data.password
+      username = var.tf-es-username
+      password = var.tf-es-password
     }
   }
 }
