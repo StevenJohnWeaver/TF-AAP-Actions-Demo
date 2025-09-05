@@ -1,11 +1,10 @@
 # Configure the AWS provider
-# Replace 'us-east-1' with your desired region
 provider "aws" {
   region = "us-east-1"
 }
 
 # Configure the AAP provider
-# Replace with your AAP instance details
+# Using the AAP provider with Actions from Dan Leehr
 terraform {
   required_version = "~> v1.14.0"
   required_providers {
@@ -70,6 +69,32 @@ variable "aap_job_template_id" {
   type        = number
 }
 
+resource "aws_security_group" "http_ssh" {
+  name        = "web-server-sg"
+  name_prefix = "allow_http_ssh_"
+  description = "Allow SSH, HTTP inbound and all outbound traffic"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+
 # 1. Provision the AWS EC2 instance
 resource "aws_instance" "web_server" {
   ami           = "ami-0a7d80731ae1b2435" # Ubuntu Server 22.04 LTS (HVM)
@@ -81,41 +106,34 @@ resource "aws_instance" "web_server" {
   }
 }
 
-# Security group to allow SSH and HTTP traffic
-resource "aws_security_group" "allow_http_ssh" {
-  name_prefix = "allow_http_ssh_"
-  description = "Allow SSH, HTTP inbound and all outbound traffic"
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+resource "aws_instance" "web_server" {
+  count                     = 5
+  ami                       = "ami-0a7d80731ae1b2435" # Ubuntu Server 22.04 LTS (HVM)
+  instance_type             = "t2.micro"
+  key_name                  = var.ssh_key_name
+  vpc_security_group_ids    = [aws_security_group.allow_http_ssh.id]
+  associate_public_ip_address = true
+  tags = {
+    Name = "hcp-terraform-aap-demo-${count.index + 1}"
   }
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  lifecycle {
+    action_trigger {
+      events  = [after_update]
+      actions = [action.aap_eventdispatch.update]
+    }
   }
-
-  # Add this rule to allow all outbound traffic
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1" # -1 means all protocols (TCP, UDP, ICMP, etc.)
-    cidr_blocks = ["0.0.0.0/0"]
+  lifecycle {
+    # This action triggers syntax new in terraform alpha
+    # It configures terraform to run the listed actions based
+    # on the named lifecycle events: "After creating this resource, run the action"
+    action_trigger {
+      events  = [after_create]
+      actions = [action.aap_eventdispatch.update]
+    }
   }
 }
 
 # 2. Configure AAP resources to run the playbook
-
-# Create a dynamic inventory in AAP
-# resource "aap_inventory" "dynamic_inventory" {
-#  name        = "Terraform Provisioned Inventory"
-#  description = "Inventory for hosts provisioned by Terraform"
-# }
 
 # This is the inventory in AAP we are using
 data "aap_inventory" "inventory" {
@@ -123,43 +141,26 @@ data "aap_inventory" "inventory" {
   organization_name = "Default"
 }
 
-# Add the new EC2 instance to the dynamic inventory
+# Add the new EC2 instance to the inventory
 resource "aap_host" "host" {
+  for_each     = { for idx, instance in aws_instance.web_server : idx => instance }
   inventory_id = data.aap_inventory.inventory.id
-  name         = aws_instance.web_server.public_ip
+  name         = each.value.public_ip
   description  = "Host provisioned by Terraform"
   variables    = jsonencode({
     ansible_user = "ubuntu"
   })
-}
-
-# Wait for the EC2 instance to be ready before proceeding
-resource "null_resource" "wait_for_instance" {
-  # This resource will wait until the EC2 instance is created
-  depends_on = [aws_instance.web_server]
-
-  # The provisioner will run a simple shell command that waits for port 22 to be available.
-  provisioner "local-exec" {
-    command = "until `timeout 1 bash -c 'cat < /dev/null > /dev/tcp/${aws_instance.web_server.public_ip}/22'`; do echo 'Waiting for port 22...'; sleep 5; done"
+  lifecycle {
+    action_trigger {
+      events  = [after_create]
+      actions = [action.aap_eventdispatch.create]
+    }
   }
 }
 
 # Output the public IP of the new instance
-output "web_server_public_ip" {
-  value = aws_instance.web_server.public_ip
-}
-
-resource "null_resource" "emit_event" {
-  depends_on = [null_resource.wait_for_instance]
-  lifecycle {
-    # This action triggers syntax new in terraform alpha
-    # It configures terraform to run the listed actions based
-    # on the named lifecycle events: "After creating this resource, run the action"
-    action_trigger {
-      events  = [after_create]
-      actions = [action.aap_eventdispatch.event]
-    }
-  }
+output "web_server_public_ips" {
+  value = [for instance in aws_instance.web_server : instance.public_ip]
 }
 
 # This is using a new 'aap_eventstream' data source in the terraform-provider-aap POC
@@ -174,21 +175,19 @@ output "event_stream_url" {
   value = data.aap_eventstream.eventstream.url
 }
 
-
 # This is using a new 'aap_eventdispatch' action in the terraform-provider-aap POC
 # The purpose is to POST an event with a payload (config) when triggered, and EDA
 # is configured with a rulebook to extract these details out of the config and dispatch
 # a job
-# TODO: With linked resources we can scope the limit to the resource that was just provisioned
-action "aap_eventdispatch" "event" {
+
+action "aap_eventdispatch" "create" {
   config {
-    limit = "web_server_public_ip"
-    template_type = "job"
-    job_template_name = "Install nginx on EC2"
+    limit = "infra"
+    template_type = "workflow"
+    job_template_name = "New AWS Provisioning Workflow"
     organization_name = "Default"
 
     event_stream_config = {
-      # url from the new datasource is working
       url = var.aap_eventstream_url
       insecure_skip_verify = true
       username = var.tf-es-username
@@ -197,4 +196,18 @@ action "aap_eventdispatch" "event" {
   }
 }
 
+action "aap_eventdispatch" "update" {
+  config {
+    limit = "infra"
+    template_type = "job"
+    job_template_name = "Update AWS Provisioning Job"
+    organization_name = "Default"
 
+    event_stream_config = {
+      url = var.aap_eventstream_url
+      insecure_skip_verify = true
+      username = var.tf-es-username
+      password = var.tf-es-password
+    }
+  }
+}
