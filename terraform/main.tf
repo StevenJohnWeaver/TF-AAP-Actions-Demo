@@ -96,7 +96,7 @@ resource "aws_security_group" "allow_http_ssh" {
 
 # 1. Provision the AWS EC2 instance(s)
 resource "aws_instance" "web_server" {
-  count                     = 5
+  count                     = 25
   ami                       = "ami-0dfc569a8686b9320" # Red Hat Enterprise Linux 9 (HVM)
   instance_type             = "t2.micro"
   key_name                  = var.ssh_key_name
