@@ -9,8 +9,8 @@ terraform {
   required_version = "~> v1.14.0"
   required_providers {
     aap = {
-      source = "dleehr/aap"
-      version = "2.0.0-demo2"
+      source = "ansible/aap"
+      version = "1.4.0-devpreview1"
     }
   }
 }
@@ -96,7 +96,7 @@ resource "aws_security_group" "allow_http_ssh" {
 
 # 1. Provision the AWS EC2 instance(s)
 resource "aws_instance" "web_server" {
-  count                     = 0
+  count                     = 5
   ami                       = "ami-0dfc569a8686b9320" # Red Hat Enterprise Linux 9 (HVM)
   instance_type             = "t2.micro"
   key_name                  = var.ssh_key_name
@@ -113,7 +113,7 @@ resource "aws_instance" "web_server" {
     # on the named lifecycle events: "After creating this resource, run the action"
     action_trigger {
       events  = [after_create]
-      actions = [action.aap_eventdispatch.create]
+      actions = [action.aap_eda_eventstream_post.create]
     }
   }
 }
@@ -147,7 +147,7 @@ resource "aap_host" "host" {
   lifecycle {
     action_trigger {
       events  = [after_create]
-      actions = [action.aap_eventdispatch.update]
+      actions = [action.aap_eda_eventstream_post.update]
     }
   }
 }
@@ -157,10 +157,10 @@ output "web_server_public_ips" {
   value = [for instance in aws_instance.web_server : instance.public_ip]
 }
 
-# This is using a new 'aap_eventstream' data source in the terraform-provider-aap POC
+# This is using a new 'aap_eda_eventstream' data source in the terraform-provider-aap POC
 # The purpose is to look up an EDA Event Stream object by ID so that we know its URL when
 # we want to send an event later.
-#data "aap_eventstream" "eventstream" {
+#data "aap_eda_eventstream" "eventstream" {
 #  name = "TF Actions Event Stream"
 #}
 
@@ -169,13 +169,13 @@ output "web_server_public_ips" {
 #  value = data.aap_eventstream.eventstream.url
 #}
 
-# This is using a new 'aap_eventdispatch' action in the terraform-provider-aap POC
+# This is using a new 'aap_eda_eventstream_post' action in the terraform-provider-aap POC
 # The purpose is to POST an event with a payload (config) when triggered, and EDA
 # is configured with a rulebook to extract these details out of the config and dispatch
 # a job
 
 # TF action to run the new AWS provisioning workflow (after ec2 instance are created)
-action "aap_eventdispatch" "create" {
+action "aap_eda_eventstream_post" "create" {
   config {
     limit = "tfademo"
     template_type = "job"
@@ -192,7 +192,7 @@ action "aap_eventdispatch" "create" {
 }
 
 # TF action to run the update AWS provisioning job (after the hosts get added to AAP inventory)
-action "aap_eventdispatch" "update" {
+action "aap_eda_eventstream_post" "update" {
   config {
     limit = "tfademo"
     template_type = "job"
